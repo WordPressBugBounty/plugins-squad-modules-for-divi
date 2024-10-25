@@ -1,0 +1,1 @@
+# plugins-squad-modules-for-divi
