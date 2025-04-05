@@ -2,8 +2,8 @@
 # This file is distributed under the same license as the freemius package.
 msgid ""
 msgstr ""
-"Project-Id-Version: freemius\n"
-"MIME-Version: 1.0\n"
+"Project-Id-VersionConfig: freemius\n"
+"MIME-VersionConfig: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language-Team: Freemius Team <admin@freemius.com>\n"
@@ -585,7 +585,7 @@ msgid "You are all good!"
 msgstr ""
 
 #: includes/class-freemius.php:22239
-msgid "Version %s was released."
+msgid "VersionConfig %s was released."
 msgstr ""
 
 #: includes/class-freemius.php:22239
@@ -897,7 +897,7 @@ msgid "Start my free %s"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:755
-msgid "Install Free Version Now"
+msgid "Install Free VersionConfig Now"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:756, templates/add-ons.php:323, templates/auto-installation.php:111, templates/account/partials/addon.php:423, templates/account/partials/addon.php:370
@@ -905,7 +905,7 @@ msgid "Install Now"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:745
-msgid "Install Free Version Update Now"
+msgid "Install Free VersionConfig Update Now"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:746, templates/account.php:652
@@ -914,7 +914,7 @@ msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:772
 msgctxt "as download latest version"
-msgid "Download Latest Free Version"
+msgid "Download Latest Free VersionConfig"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:773, templates/account.php:110, templates/add-ons.php:37, templates/account/partials/addon.php:30
@@ -927,7 +927,7 @@ msgid "Activate this add-on"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:790, templates/connect.php:436
-msgid "Activate Free Version"
+msgid "Activate Free VersionConfig"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:791, templates/account.php:134, templates/add-ons.php:330, templates/account/partials/addon.php:53
@@ -1062,7 +1062,7 @@ msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1315, templates/account.php:121, templates/debug.php:291, templates/debug.php:328, templates/debug.php:577, templates/account/partials/addon.php:41
 msgctxt "product version"
-msgid "Version"
+msgid "VersionConfig"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1322
@@ -1081,10 +1081,10 @@ msgid "%s ago"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1343
-msgid "Requires WordPress Version"
+msgid "Requires WordPress VersionConfig"
 msgstr ""
 
-#. translators: %s: Version number.
+#. translators: %s: VersionConfig number.
 #: includes/fs-plugin-info-dialog.php:1346, includes/fs-plugin-info-dialog.php:1366
 msgid "%s or higher"
 msgstr ""
@@ -1094,7 +1094,7 @@ msgid "Compatible up to"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1362
-msgid "Requires PHP Version"
+msgid "Requires PHP VersionConfig"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1375
@@ -1190,19 +1190,19 @@ msgid "Add-on must be deployed to WordPress.org or Freemius."
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1587
-msgid "Latest Version Installed"
+msgid "Latest VersionConfig Installed"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1588
-msgid "Latest Free Version Installed"
+msgid "Latest Free VersionConfig Installed"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1579
-msgid "Newer Version (%s) Installed"
+msgid "Newer VersionConfig (%s) Installed"
 msgstr ""
 
 #: includes/fs-plugin-info-dialog.php:1580
-msgid "Newer Free Version (%s) Installed"
+msgid "Newer Free VersionConfig (%s) Installed"
 msgstr ""
 
 #: templates/account.php:111, templates/forms/subscription-cancellation.php:96, templates/account/partials/addon.php:31, templates/account/partials/site.php:313
@@ -1410,11 +1410,11 @@ msgid "Show"
 msgstr ""
 
 #: templates/account.php:626
-msgid "Download %s Version"
+msgid "Download %s VersionConfig"
 msgstr ""
 
 #: templates/account.php:642
-msgid "Download Paid Version"
+msgid "Download Paid VersionConfig"
 msgstr ""
 
 #: templates/account.php:713
@@ -2601,7 +2601,7 @@ msgid " %s to access version %s security & feature updates, and support."
 msgstr ""
 
 #: templates/forms/premium-versions-upgrade-handler.php:54
-msgid "New Version Available"
+msgid "New VersionConfig Available"
 msgstr ""
 
 #: templates/forms/premium-versions-upgrade-handler.php:75
