@@ -8,6 +8,7 @@
  * comprehensive system information for support tickets.
  *
  * @since   3.4.0
+ * @since   3.4.4 Updated to use unified Divi detection system
  * @package DiviSquad
  * @author  The WP Squad <support@squadmodules.com>
  */
@@ -31,6 +32,7 @@ use WP_Theme;
  * - Divi framework detection and analysis
  *
  * @since   3.4.0
+ * @since   3.4.4 Updated to use unified Divi detection
  * @package DiviSquad
  */
 class Environment_Collector {
@@ -77,7 +79,7 @@ class Environment_Collector {
 				}
 			}
 
-			// Collect detailed Divi detection information.
+			// Collect detailed Divi detection information from unified utility.
 			$environment = $this->add_divi_detection_info( $environment );
 
 			/**
@@ -102,10 +104,11 @@ class Environment_Collector {
 	/**
 	 * Add Divi detection information to environment data
 	 *
-	 * Collects detailed information about Divi detection methods,
-	 * customizations, and theme status to help with debugging.
+	 * Updated to use the centralized Divi utility class for consistent detection
+	 * throughout the plugin.
 	 *
 	 * @since  3.4.0
+	 * @since  3.4.4 Updated to use unified Divi detection
 	 * @access protected
 	 *
 	 * @param array<string, mixed> $environment Base environment information.
@@ -114,137 +117,35 @@ class Environment_Collector {
 	 */
 	protected function add_divi_detection_info( array $environment ): array {
 		try {
-			// Set detection method placeholder.
-			$detection_method = 'Unknown';
+			// Use centralized Divi detection instead of duplicating logic
+			$divi_info = Divi::get_divi_environment_info();
 
-			// Check for Divi constants (very reliable signal).
-			$divi_constants = Divi::get_defined_divi_constants();
+			// Add all relevant Divi info to the environment array
+			$environment['divi_version']          = $divi_info['version'];
+			$environment['divi_mode']             = $divi_info['builder_mode'];
+			$environment['divi_detection_method'] = $divi_info['version_detection_method'];
 
-			if ( count( $divi_constants ) > 0 ) {
-				$detection_method              = 'Constants: ' . implode( ', ', $divi_constants );
-				$environment['divi_constants'] = $divi_constants;
+			// Include theme information
+			if ( isset( $divi_info['theme_name'] ) ) {
+				$environment['active_theme_name'] = $divi_info['theme_name'];
 			}
 
-			// Check for theme modifications.
-			$current_theme       = wp_get_theme();
-			$is_modified         = false;
-			$standard_divi_theme = in_array( $current_theme->get( 'Name' ), array( 'Divi', 'Extra' ), true );
-			$is_child_theme      = (bool) $current_theme->parent();
-
-			// If it's not a standard Divi/Extra theme and not a direct child theme, it's likely modified.
-			if ( ! $standard_divi_theme && ! $is_child_theme && Divi::is_any_divi_theme_active() ) {
-				$is_modified      = true;
-				$detection_method = 'Custom theme with Divi framework';
+			// Add child theme info if applicable
+			$environment['is_child_theme'] = $divi_info['is_child_theme'] ? 'Yes' : 'No';
+			if ( $divi_info['is_child_theme'] && ! empty( $divi_info['parent_theme_name'] ) ) {
+				$environment['parent_theme_name'] = $divi_info['parent_theme_name'];
 			}
 
-			// Child theme detection.
-			if ( $is_child_theme ) {
-				$parent = $current_theme->parent();
-				if ( $parent instanceof \WP_Theme && in_array( $parent->get( 'Name' ), array( 'Divi', 'Extra' ), true ) ) {
-					$detection_method = 'Child theme of ' . $parent->get( 'Name' );
-				}
+			// Add modification status
+			$environment['divi_modified'] = $divi_info['is_modified'];
+
+			// Add constants information if available
+			if ( ! empty( $divi_info['defined_constants'] ) ) {
+				$environment['divi_constants'] = $divi_info['defined_constants'];
 			}
 
-			// Plugin detection.
-			if ( Divi::is_divi_builder_plugin_active() ) {
-				$detection_method = 'Divi Builder Plugin';
-
-				// Add plugin specific info.
-				if ( defined( 'ET_BUILDER_PLUGIN_VERSION' ) ) {
-					$environment['plugin_specific_version'] = ET_BUILDER_PLUGIN_VERSION;
-				}
-			}
-
-			// Check for Divi functions.
-			$divi_functions = array(
-				'et_setup_theme',
-				'et_divi_fonts_url',
-				'et_pb_is_pagebuilder_used',
-				'et_core_is_fb_enabled',
-				'et_builder_get_fonts',
-				'et_builder_bfb_enabled',
-				'et_fb_is_theme_builder_used_on_page',
-			);
-
-			/**
-			 * Filter the Divi functions to check in Site Health.
-			 *
-			 * Allows modification of which Divi functions are checked and reported.
-			 *
-			 * @since 3.3.3
-			 *
-			 * @param array<string> $divi_functions The Divi functions to check.
-			 */
-			$divi_functions = apply_filters( 'divi_squad_error_report_functions_check', $divi_functions );
-
-			// Check for Divi functions.
-			$available_functions = Divi::get_available_divi_functions( $divi_functions );
-
-			if ( count( $available_functions ) > 0 ) {
-				$environment['divi_functions'] = $available_functions;
-				if ( 'Unknown' === $detection_method ) {
-					$detection_method = 'Functions: ' . implode( ', ', array_slice( $available_functions, 0, 3 ) );
-				}
-			}
-
-			// Check for directory structure (least reliable but useful as fallback).
-			if ( 'Unknown' === $detection_method && $current_theme instanceof WP_Theme ) {
-				$theme_dir = $current_theme->get_stylesheet_directory();
-
-				/**
-				 * Filter to Divi directories that are checked for detection
-				 *
-				 * @since 3.4.0
-				 *
-				 * @param array<string> $directory_markers List of Divi directories to check.
-				 * @param string        $theme_dir         Theme directory path.
-				 */
-				$directory_markers = apply_filters(
-					'divi_squad_error_report_theme_directory_markers',
-					array(
-						'includes/builder',
-						'epanel',
-						'core',
-						'includes/builder/feature',
-						'includes/builder/frontend-builder',
-					),
-					$theme_dir
-				);
-
-				$found_markers = array();
-				foreach ( $directory_markers as $marker ) {
-					$path = trailingslashit( $theme_dir ) . $marker;
-					if ( divi_squad()->get_wp_fs()->exists( $path ) ) {
-						$found_markers[] = $marker;
-					}
-				}
-
-				if ( count( $found_markers ) >= 2 ) {
-					$detection_method                      = 'Directory structure: ' . implode( ', ', $found_markers );
-					$environment['divi_directory_markers'] = $found_markers;
-				}
-			}
-
-			// Add detection method and modification status to environment.
-			$environment['divi_detection_method'] = $detection_method;
-			$environment['divi_modified']         = $is_modified;
-
-			// Include framework source info.
-			if ( $is_child_theme && isset( $environment['parent_theme_name'] ) ) {
-				$environment['divi_framework_source'] = 'Parent Theme: ' . $environment['parent_theme_name'];
-			} elseif ( Divi::is_divi_builder_plugin_active() ) {
-				$environment['divi_framework_source'] = 'Divi Builder Plugin';
-			} else {
-				$environment['divi_framework_source'] = 'Direct Theme';
-			}
-
-			// Include divi theme status details.
-			try {
-				$environment['status_details'] = divi_squad()->requirements->get_status();
-			} catch ( Throwable $e ) {
-				// If we encounter any errors, just continue without this data.
-				$environment['requirements_error'] = $e->getMessage();
-			}
+			// Add framework source information
+			$environment['divi_framework_source'] = $divi_info['framework_source'];
 
 			return $environment;
 		} catch ( Throwable $e ) {
@@ -304,7 +205,7 @@ class Environment_Collector {
 				if ( ! $is_divi_based ) {
 					$theme_dir = $theme->get_stylesheet_directory();
 					if ( divi_squad()->get_wp_fs()->exists( $theme_dir . '/includes/builder' ) &&
-						( divi_squad()->get_wp_fs()->exists( $theme_dir . '/epanel' ) || divi_squad()->get_wp_fs()->exists( $theme_dir . '/core' ) ) ) {
+					     ( divi_squad()->get_wp_fs()->exists( $theme_dir . '/epanel' ) || divi_squad()->get_wp_fs()->exists( $theme_dir . '/core' ) ) ) {
 						$is_divi_based = true;
 					}
 				}

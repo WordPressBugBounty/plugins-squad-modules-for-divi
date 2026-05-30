@@ -39,6 +39,14 @@ class Email_Sender {
 	protected string $to = 'support@squadmodules.com';
 
 	/**
+	 * WP mail failure errors
+	 *
+	 * @since 3.4.0
+	 * @var WP_Error
+	 */
+	protected WP_Error $wp_mail_errors;
+
+	/**
 	 * Initialize error email sender
 	 *
 	 * Sets up the email sender with proper configuration.
@@ -46,6 +54,9 @@ class Email_Sender {
 	 * @since 3.4.0
 	 */
 	public function __construct() {
+		// Initialise the collector so get_wp_mail_errors() is safe before a send.
+		$this->wp_mail_errors = new WP_Error();
+
 		/**
 		 * Filter the recipient email address for error reports.
 		 *
@@ -74,6 +85,9 @@ class Email_Sender {
 			if ( ! function_exists( 'wp_mail' ) ) {
 				require_once ABSPATH . WPINC . '/pluggable.php';
 			}
+
+			// Initialize wp_mail error collector.
+			$this->wp_mail_errors = new WP_Error();
 
 			// Configure email.
 			$this->add_email_filters();
@@ -112,12 +126,22 @@ class Email_Sender {
 			);
 
 			// Send email.
-			return wp_mail(
+			$sent = wp_mail(
 				$email_params['to'],
 				$email_params['subject'],
 				$email_params['message'],
 				$email_params['headers']
 			);
+
+			if ( false === $sent ) {
+				foreach ( $this->wp_mail_errors->get_error_codes() as $code ) {
+					foreach ( $this->wp_mail_errors->get_error_messages( $code ) as $message ) {
+						$errors->add( $code, $message, $this->wp_mail_errors->get_error_data( $code ) );
+					}
+				}
+			}
+
+			return $sent;
 		} catch ( Throwable $e ) {
 			divi_squad()->log_error( $e, 'Error sending email', false );
 			$errors->add( 'email_send_failed', $e->getMessage() );
@@ -234,7 +258,6 @@ class Email_Sender {
 		$headers = array(
 			sprintf( 'From: %s <%s>', $site_name, $admin_email ),
 			'X-Mailer-Type: SquadModules/AutomatedErrorReport',
-			'Content-Type: text/html; charset=' . $charset,
 		);
 
 		/**
@@ -243,9 +266,8 @@ class Email_Sender {
 		 * @since 3.4.0
 		 *
 		 * @param array<string> $headers Email headers.
-		 * @param array<string> $data    Additional data
 		 */
-		return apply_filters( 'divi_squad_error_report_headers', $headers, array() );
+		return apply_filters( 'divi_squad_error_report_headers', $headers );
 	}
 
 	/**
@@ -262,25 +284,15 @@ class Email_Sender {
 	 */
 	protected function get_email_message_html( array $data ): string {
 		try {
-			// Prepare data for the email.
-			$template_data = array_merge(
-				$data,
-				array(
-					'site_url'  => home_url(),
-					'site_name' => get_bloginfo( 'name' ),
-					'timestamp' => current_time( 'mysql' ),
-					'charset'   => get_bloginfo( 'charset' ),
-				)
-			);
-
-			/**
-			 * Filter the data used in the error report email template.
-			 *
-			 * @since 3.4.0
-			 *
-			 * @param array<string, mixed> $template_data Prepared data for the email template.
-			 */
-			$template_data = apply_filters( 'divi_squad_error_report_template_data', $template_data );
+			// Reporter::process_template_data() already prepared and filtered the
+			// payload (incl. the divi_squad_error_report_template_data_processed
+			// filter). Only backfill site keys for callers that bypass it; do not
+			// re-apply a second template-data filter over the same data.
+			$template_data              = $data;
+			$template_data['site_url']  = $template_data['site_url'] ?? home_url();
+			$template_data['site_name'] = $template_data['site_name'] ?? get_bloginfo( 'name' );
+			$template_data['timestamp'] = $template_data['timestamp'] ?? current_time( 'mysql' );
+			$template_data['charset']   = $template_data['charset'] ?? get_bloginfo( 'charset' );
 
 			/**
 			 * Filter the path to the error report email template.
@@ -298,9 +310,6 @@ class Email_Sender {
 			ob_start();
 
 			if ( divi_squad()->get_wp_fs()->exists( $template ) ) {
-				// Extract variables to make them available in the template.
-				extract( $template_data ); // phpcs:ignore WordPress.PHP.DontExtract.extract_extract
-
 				/**
 				 * Action fired before including the error report template.
 				 *
@@ -311,7 +320,7 @@ class Email_Sender {
 				 */
 				do_action( 'divi_squad_before_error_report_template', $template, $template_data );
 
-				include $template;
+				load_template( $template, false, $template_data );
 
 				/**
 				 * Action fired after including the error report template.
@@ -416,6 +425,12 @@ class Email_Sender {
 	 */
 	public function set_failure_errors( WP_Error $error ): void {
 		try {
+			foreach ( $error->get_error_codes() as $code ) {
+				foreach ( $error->get_error_messages( $code ) as $message ) {
+					$this->wp_mail_errors->add( $code, $message, $error->get_error_data( $code ) );
+				}
+			}
+
 			/**
 			 * Action triggered when a mail failure occurs.
 			 *
@@ -427,5 +442,16 @@ class Email_Sender {
 		} catch ( Throwable $e ) {
 			divi_squad()->log_error( $e, 'Error handling mail failure' );
 		}
+	}
+
+	/**
+	 * Get WP mail failure errors
+	 *
+	 * @since 3.4.0
+	 *
+	 * @return WP_Error Mail failure errors.
+	 */
+	public function get_wp_mail_errors(): WP_Error {
+		return $this->wp_mail_errors;
 	}
 }

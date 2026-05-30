@@ -59,6 +59,14 @@ class Reporter {
 	protected Environment_Collector $environment_collector;
 
 	/**
+	 * Duplicate error filter instance
+	 *
+	 * @since 3.4.0
+	 * @var Duplicate_Filter
+	 */
+	protected Duplicate_Filter $duplicate_filter;
+
+	/**
 	 * WP_Error instance for error handling
 	 *
 	 * @since 3.4.0
@@ -96,6 +104,18 @@ class Reporter {
 	);
 
 	/**
+	 * Multi-line diagnostic fields exempt from sanitize_text_field
+	 *
+	 * @since 3.4.0
+	 * @var array<string>
+	 */
+	private const MULTILINE_FIELDS = array(
+		'stack_trace',
+		'debug_log',
+		'extra_data',
+	);
+
+	/**
 	 * Initialize error reporter
 	 *
 	 * Creates a new error reporter instance with dependencies and sanitized data.
@@ -108,6 +128,7 @@ class Reporter {
 		$this->email_sender          = new Email_Sender();
 		$this->rate_limiter          = new Rate_Limiter();
 		$this->environment_collector = new Environment_Collector();
+		$this->duplicate_filter      = new Duplicate_Filter();
 		$this->errors                = new WP_Error();
 		$this->data                  = $this->sanitize_data( $data );
 	}
@@ -130,7 +151,7 @@ class Reporter {
 			$template_data = $data;
 
 			// Ensure environment data is included
-			if ( '' === $template_data['environment'] ) {
+			if ( empty( $template_data['environment'] ) || ! is_array( $template_data['environment'] ) ) {
 				$template_data['environment'] = $this->environment_collector->get_environment_info();
 			}
 
@@ -321,7 +342,7 @@ class Reporter {
 			 * @param string               $error_type     The categorized error type.
 			 */
 			return apply_filters(
-				'divi_squad_error_report_template_data',
+				'divi_squad_error_report_template_data_processed',
 				$template_data,
 				$severity_class,
 				$error_type
@@ -356,7 +377,7 @@ class Reporter {
 			do_action( 'divi_squad_before_send_error_report', $this->data, $this->errors );
 
 			// Validate rate limit.
-			if ( ! $this->rate_limiter->check_rate_limit() ) {
+			if ( ! $this->rate_limiter->can_send() ) {
 				// Check if this is a critical error that should bypass rate limiting
 				$is_critical = isset( $this->data['is_critical'] ) && true === $this->data['is_critical'];
 
@@ -372,7 +393,7 @@ class Reporter {
 
 				if ( $force_reset ) {
 					// Reset the rate limit for critical errors
-					$this->rate_limiter->reset_rate_limit();
+					$this->rate_limiter->reset();
 				} else {
 					throw new RuntimeException(
 						esc_html__( 'Error report rate limit exceeded. Please try again later.', 'squad-modules-for-divi' )
@@ -395,6 +416,22 @@ class Reporter {
 			// Add environment info to data
 			$this->data['environment'] = $this->environment_collector->get_environment_info();
 
+			// Suppress duplicate reports within the tracking window, unless the
+			// error is flagged critical (critical errors always report).
+			$is_critical = isset( $this->data['is_critical'] ) && true === $this->data['is_critical'];
+			if ( ! $is_critical && $this->duplicate_filter->is_duplicate( $this->data ) ) {
+				/**
+				 * Action fired when an error report is skipped as a duplicate.
+				 *
+				 * @since 3.4.0
+				 *
+				 * @param array<string, mixed> $data Error report data.
+				 */
+				do_action( 'divi_squad_error_report_duplicate', $this->data );
+
+				return false;
+			}
+
 			// Process data for the email template with all filters applied
 			$template_data = $this->process_template_data( $this->data );
 
@@ -403,7 +440,10 @@ class Reporter {
 
 			// Increment rate limit counter on success.
 			if ( $this->result ) {
-				$this->rate_limiter->increment_rate_limit();
+				$this->rate_limiter->increment();
+
+				// Track this error so identical reports are suppressed next time.
+				$this->duplicate_filter->mark_reported( $this->data );
 
 				/**
 				 * Action triggered after successfully sending an error report.
@@ -518,7 +558,9 @@ class Reporter {
 		$sanitize_function = apply_filters( 'divi_squad_error_report_sanitize_function', 'sanitize_text_field' );
 
 		foreach ( $data as $key => $value ) {
-			if ( is_string( $value ) ) {
+			if ( in_array( $key, self::MULTILINE_FIELDS, true ) ) {
+				$sanitized[ $key ] = $value;
+			} elseif ( is_string( $value ) ) {
 				$sanitized[ $key ] = call_user_func( $sanitize_function, $value );
 			} elseif ( is_array( $value ) ) {
 				$sanitized[ $key ] = $this->sanitize_data( $value );
@@ -607,7 +649,7 @@ class Reporter {
 	 *
 	 * @return bool Success status.
 	 */
-	public static function quick_send( Throwable $throwable, array $additional_data = array() ): bool {
+	public function quick_send( Throwable $throwable, array $additional_data = array() ): bool {
 		try {
 			$error_data = array(
 				'error_message' => $throwable->getMessage(),
@@ -633,7 +675,12 @@ class Reporter {
 			$include_debug_log = apply_filters( 'divi_squad_error_report_include_debug_log', true );
 
 			if ( $include_debug_log ) {
-				$error_data['debug_log'] = Log_Reader::get_debug_log();
+				// Log_Reader class does not exist in this codebase; read the WP debug log
+				// file directly as a safe fallback, or return an empty string if unavailable.
+				$debug_log_path          = defined( 'WP_DEBUG_LOG' ) && is_string( WP_DEBUG_LOG ) ? WP_DEBUG_LOG : ( defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR . '/debug.log' : '' );
+				$error_data['debug_log'] = ( '' !== $debug_log_path && file_exists( $debug_log_path ) && is_readable( $debug_log_path ) )
+					? implode( '', array_slice( file( $debug_log_path ) ?: array(), -100 ) )
+					: '';
 			}
 
 			// Add Divi version info if applicable.
@@ -680,7 +727,7 @@ class Reporter {
 	 */
 	public static function force_reset_rate_limit(): bool {
 		try {
-			return ( new Rate_Limiter() )->reset_rate_limit();
+			return ( new Rate_Limiter() )->reset();
 		} catch ( Throwable $e ) {
 			divi_squad()->log_error( $e, 'Static error rate limit reset failed', false );
 
