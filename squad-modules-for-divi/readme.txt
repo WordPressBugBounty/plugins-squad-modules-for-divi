@@ -5,7 +5,7 @@ Tags: divi, divi module, divi theme, divi builder, divi page builder
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 4.1.0
+Stable tag: 4.1.1
 License: GPL-3.0-only
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 
@@ -106,8 +106,8 @@ Don't settle for limitations – embrace the power of Squad Modules Lite and unl
 
 Before diving into the exciting world of Squad Modules Lite, let's ensure your website meets the minimum requirements for a smooth installation:
 
-* **WordPress:** Version 5.0 or greater
-* **PHP:** Version 7.0 or greater
+* **WordPress:** Version 6.0 or greater
+* **PHP:** Version 7.4 or greater
 * **MySQL:** Version 5.0 or greater
 * **Divi Theme, Extra Theme, or Divi Builder Plugin:** Version 4.13 or greater — including Divi 5 with the new Visual Builder
 
@@ -191,6 +191,9 @@ If you need assistance with Squad Modules Lite, you can reach out to [our suppor
 12. Typing Text Module - Animated typing headlines with configurable words, speed, color, and cursor to grab attention.
 
 == Upgrade Notice ==
+= 4.1.1 =
+Security and bug-fix patch: resolves XSS and CSS injection vulnerabilities in multiple Divi 4 and Divi 5 modules, fixes output-buffer leaks in auth form modules, corrects wrong CSS selectors and inverted form conditions, and improves Visual Builder previews for 9 Divi 5 modules.
+
 = 4.1.0 =
 Feature release: a rebuilt React admin dashboard (live stats, module/extension management, dark mode) and 15 new modules including Social Share, Table of Contents, Number Counter, Advanced Button, Hover Box, Animated Heading, Image Carousel, and Logo Grid. The admin page slug changed from "divi_squad_dashboard" to "divi_squad"; old bookmarks are redirected automatically. Divi 4 and Divi 5 builder support continue unchanged.
 
@@ -234,6 +237,34 @@ Major performance improvements, bug fixes, and enhanced module loading system. N
 Bug fixing for Flip box module
 
 == Changelog ==
+= 4.1.1 (19-06-2026) =
+
+**Security:**
+- Fixed XSS in Typing Text (D4) — `text_element_tag` prop was used as a raw HTML tag name without allowlist validation; `wp_kses_post()` on a plain string like `script` does not strip it.
+- Fixed CSS injection in Image Gallery (D4) — `esc_attr()` on CSS custom-property values does not strip `;`; replaced with `absint()` and `sanitize_css_length()`.
+- Fixed CSS injection in Image Mask (D5) — decoration layer fill color written into a `<style>` block via `esc_attr()` instead of `sanitize_css_background()`.
+- Fixed CSS injection in Post Grid (D5) — gap CSS custom property value not length-validated before insertion.
+- Fixed CSS injection in Video Popup, Image Mask (D4) — color and transform values interpolated into `set_style()` declarations without sanitization.
+- Fixed CSS injection in Gradient Text, Skill Bar, Divider (D5) — missing semicolons in declarations and wrong escape function in class attributes.
+- Fixed XSS across 9 D4 modules (Scrolling Text, Dual Button, Drop Cap Text, Advanced Button, Table of Contents, Text Highlighter, Drop Cap Text, Lottie, Glitch Text) — prop values used in HTML output without proper escaping.
+
+**Bug fixes:**
+- Fixed output-buffer leaks in all 4 Auth form modules (D4) — catch blocks returned without calling `ob_get_clean()`, leaking the open buffer on exceptions.
+- Fixed Forminator form condition (D4) — inverted `'' !== $form_html` meant the form never rendered; corrected to `'' === $form_html`.
+- Fixed Post Reading Time wrong toggle slug and broken CSS selector (D4).
+- Fixed Flip Box front button border applying to wrong slide (D4) and missing leading dots in several CSS selectors.
+- Fixed Video Popup icon opacity selector and wrong `use_overlay` default (D4).
+- Fixed Star Rating display type default and wrong font transition group (D4).
+- Fixed Post Grid Child `prop()` fallback typo `' off'` → `'off'` (D4).
+- Fixed ob_start leak in Post Grid and Ninja Forms catch blocks (D4).
+- Added missing `aria-hidden` on decorative elements in Breadcrumbs and Hover Box (D4).
+- Added missing image alt field to Number Counter (D4).
+- Added missing root CSS classes and fixed VB preview styles for 24 Divi 5 modules.
+- Fixed Skill Bar spacing selector and Post Grid load-more button style (D5).
+
+**Refactor:**
+- Consolidated `sanitize_css_background()` and `sanitize_css_length()` into the D4 and D5 abstract base classes — removed 43 identical private static copies across module files (-6,087 lines).
+
 = 4.1.0 (09-06-2026) =
 
 **New Modules:**
